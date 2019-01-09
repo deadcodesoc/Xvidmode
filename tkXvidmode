@@ -1,0 +1,208 @@
+#!/usr/bin/wish
+
+#######################################################
+#
+# tkXvidmode: Tcl/Tk front-end to Xvidmode
+#
+# Copyright (C) 1999 by Elchonon Edelson <ee@isoft.com>
+#
+# licensed for use under the terms of the GNU General
+# Public License, Version 2.
+
+# Revision:
+#
+# 1999-05-03
+#    Updated to take advantage of new features. Removed
+#    "version" button. Added "Prev" and "Next" buttons.
+#    moved "QUIT" button to the bottom, and made it span
+#    the width of the window. Added key bindings. "Q" or
+#    "q" will quit. "<Esc>" will quit. "<Return>" will
+#    switch to selected mode. Double-click in the listbox
+#    will switch to the selected mode.
+#
+# 1999-04-28
+#    Wrote first version. Has four buttons across top:
+#    "set", "list", "version", and "QUIT". then has a
+#    box with the list of modes. to set the mode, click
+#    on the mode, then click set. the list button just
+#    retrieves the list of modes, which is done on auto
+#    anyway. the version button displays the Xvidmode
+#    version. The QUIT button is obvious, I think.
+#
+
+set XVIDMODE	"./Xvidmode"
+set QUIT	0
+
+proc prog_get_mode {} {
+    global XVIDMODE
+    set m [exec -- "$XVIDMODE"]
+    return "$m"
+}
+
+proc prog_set_mode {x y} {
+    global XVIDMODE
+    exec -- "$XVIDMODE" "$x" "$y"
+    set m [exec -- "$XVIDMODE"]
+    return "$m"
+}
+
+proc prog_prev_mode {} {
+    global XVIDMODE
+    exec -- "$XVIDMODE" "-p"
+    set m [exec -- "$XVIDMODE"]
+    return "$m"
+}
+
+proc prog_next_mode {} {
+    global XVIDMODE
+    exec -- "$XVIDMODE" "-n"
+    set m [exec -- "$XVIDMODE"]
+    return "$m"
+}
+
+proc set_mode {} {
+    global listbox
+    set index [$listbox(w) curselection]
+    if {[llength $index] < 1} {
+	tk_messageBox -title "Error!" -message \
+		"You must select a resolution."
+	return
+    } elseif {[llength $index] > 1} {
+	tk_messageBox -title "Error!" -message \ 
+		"You may only select one resolution."
+	return
+    }
+    set xymode [$listbox(w) get $index]
+    set mode [split $xymode x]
+    prog_set_mode [lindex $mode 0] [lindex $mode 1]
+    select_current_mode
+}
+
+proc prev_mode {} {
+    global listbox
+    prog_prev_mode
+    select_current_mode
+}
+
+proc next_mode {} {
+    global listbox
+    prog_next_mode
+    select_current_mode
+}
+
+proc select_current_mode {} {
+    global listbox
+    set mode [prog_get_mode]
+    set xymode [lindex $mode 0]x[lindex $mode 1]
+    $listbox(w) selection clear 0 end
+    $listbox(w) selection set [set listbox([set xymode])]
+    wm title $listbox(top) [set xymode]
+}
+
+proc prog_get_all_modes {} {
+    global XVIDMODE
+    set m [exec -- "$XVIDMODE" -l]
+    return "$m"
+}
+
+proc get_modes {} {
+    global listbox
+    set modes [prog_get_all_modes]
+    set modelist [split $modes "\n"]
+    $listbox(w) delete 0 end
+    set c 0
+    foreach q $modelist {
+	set z [lindex $q 0]x[lindex $q 1]
+	set listbox([set z]) $c
+	$listbox(w) insert $c "$z"
+	incr c
+    }
+    select_current_mode
+}
+
+proc prog_get_version {} {
+    global XVIDMODE
+    set v [exec -- "$XVIDMODE" -v]
+    return "$v"
+}
+
+proc get_version {} {
+    set vers [prog_get_version]
+    tk_messageBox -title "Version" -message "$vers"
+    return
+}
+
+proc quit_key {} {
+    global listbox
+    $listbox(qbutton) flash; $listbox(qbutton) invoke;
+}
+
+proc quit_button {} {
+    global QUIT
+    set QUIT 1
+    return
+}
+
+set listbox(top) ".top"
+
+if {[winfo exists $listbox(top)]} {
+    destroy $listbox(top)
+}
+
+wm withdraw .
+update
+
+toplevel $listbox(top) -class Toplevel
+
+wm title $listbox(top) "tkXvidmode"
+
+set bframe "$listbox(top).buttons"
+frame $bframe -borderwidth 2 -height 75 -relief groove
+
+button $bframe.prev -padx 12 -pady 4 -text "prev" -command prev_mode
+button $bframe.set  -padx 12 -pady 4 -text "set"  -command set_mode
+button $bframe.next -padx 12 -pady 4 -text "next" -command next_mode
+button $bframe.list -padx 12 -pady 4 -text "list"    -command get_modes
+#button $bframe.ver  -padx 12 -pady 4 -text "version" -command get_version
+#button $bframe.quit -padx 12 -pady 4 -text " QUIT  " -command quit_button
+
+pack $bframe.prev $bframe.set $bframe.next $bframe.list \
+	-in $bframe -fill x -expand y -side left
+
+set lframe "$listbox(top).list"
+frame $lframe -borderwidth 2 -height 75 -relief groove
+
+set scrollbar "$lframe.s"
+set listbox(w) "$lframe.l"
+
+listbox $listbox(w) -exportselection 0 -setgrid 1
+scrollbar $scrollbar
+
+$listbox(w) config -yscrollcommand "$scrollbar set"
+$scrollbar config -command "$listbox(w) yview"
+
+pack $scrollbar -in $lframe -fill y -side right
+pack $listbox(w) -in $lframe -fill both -expand y -side left
+
+set qframe "$listbox(top).quitbuttonframe"
+set listbox(qbutton) "$qframe.q"
+frame $qframe -borderwidth 2 -height 75 -relief groove
+
+button $listbox(qbutton) -padx 12 -pady 4 -text "QUIT" -command quit_button
+
+pack $listbox(qbutton) -in $qframe -fill x -expand y -side left
+
+pack $bframe -in $listbox(top) -side top -fill x
+pack $qframe -in  $listbox(top) -side bottom -fill x
+pack $lframe -in $listbox(top) -side top -fill both -expand y 
+
+bind all <Key-Q> "quit_key"
+bind all <Key-q> "quit_key"
+bind all <Key-Escape> "quit_key"
+bind all <Key-Return> "set_mode"
+bind all <Key-KP_Enter> "set_mode"
+bind $listbox(w) <Double-Button-1> "set_mode"
+
+get_modes
+tkwait variable QUIT
+exit

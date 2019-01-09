@@ -1,0 +1,9 @@
+Changes from version 0.3
+- 
+
+Changes from previous version 0.0.199904 (first release)
+
+- Added Tcl/Tk frontend (thanks Elchonon Edelson :)
+- Added ``go to next/previous mode''
+- Added file ``Tips''
+- Minor changes
